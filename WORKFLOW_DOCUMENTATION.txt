@@ -1,0 +1,459 @@
+================================================================================
+        INTERCEPTOR (UPI SCANNER) - LOW-LEVEL WORKFLOW DOCUMENTATION
+================================================================================
+App Name   : intercept (UPI Scanner)
+Language   : Dart / Flutter
+Entry File : lib/main.dart
+Version    : 1.0.0+1
+Platform   : Android, iOS (portrait-only)
+--------------------------------------------------------------------------------
+
+
+================================================================================
+SECTION 1 — APP STARTUP
+================================================================================
+
+1.1  main() is called (the Dart program entry point).
+
+1.2  WidgetsFlutterBinding.ensureInitialized() is called first.
+     - This binds the Flutter framework to the platform/OS before any widget
+       is built. It is required whenever you call platform-channel code
+       (like SystemChrome) before runApp().
+
+1.3  SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]) is
+     called.
+     - This locks the screen to portrait-up mode only. The user cannot rotate
+       the device and have the app follow.
+
+1.4  runApp(const MyApp()) starts the Flutter widget tree.
+
+1.5  MyApp.build() is called:
+     - Creates a MaterialApp with:
+         title        : 'UPI Scanner'
+         debug banner : hidden
+         theme        : Material 3, dark mode, seed color #6200EA (deep purple)
+         font         : 'Inter' (system fallback if not bundled)
+         home screen  : ScannerScreen widget
+
+
+================================================================================
+SECTION 2 — SCANNER SCREEN (Home Screen)
+================================================================================
+
+Class: ScannerScreen (StatefulWidget)
+State: _ScannerScreenState
+
+--- 2.1  State Initialization ---
+
+  - cameraController = MobileScannerController()
+      A controller object from the `mobile_scanner` package. It manages the
+      device camera, barcode detection engine, and torch.
+  - _isScanning = true
+      A boolean flag used to gate whether incoming scan events are processed.
+      This prevents the same QR code from being processed multiple times
+      while the navigator transition is happening.
+
+--- 2.2  Widget Tree (build method) ---
+
+  Scaffold
+  ├── AppBar
+  │     title   : "Scan to Pay" (bold)
+  │     actions : A history icon button → navigates to TransactionsScreen
+  │
+  └── Body (Stack — layers drawn bottom to top)
+        ├── Layer 1: MobileScanner widget (fills entire screen)
+        │     - Renders live camera feed
+        │     - onDetect callback: _onDetect (called on every frame a barcode is found)
+        │
+        ├── Layer 2: Center overlay box (250×250 dp)
+        │     - Rounded border (radius 24, deep purple, 3px wide)
+        │     - AnimatedContainer gradient (purple, fading top→bottom, 2 sec duration)
+        │     - This is a purely visual "scan frame" — it does NOT constrain
+        │       where scanning actually happens. The scanner works on the full frame.
+        │
+        └── Layer 3: Bottom hint label (positioned 40dp from bottom)
+              - Text: "Align QR code within frame"
+              - Pill-shaped black54 background
+
+--- 2.3  Barcode Detection Callback: _onDetect(BarcodeCapture capture) ---
+
+  Called by MobileScanner every time its internal ML engine detects barcodes
+  in a video frame. Runs on the main (UI) thread.
+
+  Step 1: Guard check
+          if (!_isScanning) return;
+          → Drops the event silently if a scan is already being processed.
+
+  Step 2: Extract barcode list from the BarcodeCapture object.
+          Takes the FIRST barcode found (barcodes.first).
+
+  Step 3: Read rawValue (the raw string inside the QR code).
+          If rawValue is null, the callback exits without doing anything.
+
+  Step 4: Sets _isScanning = false via setState().
+          → Prevents any further QR detections from being processed until the
+            user returns from the PaymentDetailsScreen.
+
+  Step 5: Calls _processQrCode(code) with the raw string.
+
+--- 2.4  QR Code Processing: _processQrCode(String code) ---
+
+  This method parses the raw QR string and decides what to do.
+
+  Branch A — UPI deep-link format:
+      Condition : code starts with "upi://pay" (case-insensitive)
+      Action    : Parse using Uri.parse()
+                  Extract 'pa' query param → payeeAddress (the UPI ID)
+                  Extract 'pn' query param → payeeName (defaults to 'Unknown Payee')
+
+  Branch B — Plain UPI ID format:
+      Condition : code contains '@' (e.g., "someone@upi")
+      Action    : payeeAddress = code.trim()
+                  payeeName = 'Unknown Payee'
+
+  Branch C — Everything else:
+      Action    : Throws Exception('Invalid QR code format')
+
+  Post-parse validation:
+      If payeeAddress is null or empty → throws Exception('UPI ID not found in QR code')
+
+  Success path:
+      Navigator.push() → opens PaymentDetailsScreen, passing payeeAddress and payeeName.
+      .then() callback → when PaymentDetailsScreen is popped (user presses back or
+                         finishes), _isScanning is set back to true, re-enabling scanning.
+
+  Error path:
+      Shows a red SnackBar with the error message (strips 'Exception: ' prefix).
+      After 2 seconds, sets _isScanning = true again (if widget is still mounted).
+
+
+================================================================================
+SECTION 3 — PAYMENT DETAILS SCREEN
+================================================================================
+
+Class: PaymentDetailsScreen (StatefulWidget)
+State: _PaymentDetailsScreenState
+Input props: payeeAddress (String), payeeName (String)
+
+--- 3.1  State Members ---
+
+  _amountController : TextEditingController for the amount text field.
+  _categories       : Hardcoded list of 7 strings:
+                        ['Food', 'Travel', 'Groceries', 'Shopping',
+                         'Utilities', 'Entertainment', 'Other']
+  _selectedCategory : String? — null until user selects a category chip.
+
+  dispose() is overridden to call _amountController.dispose(), releasing the
+  TextEditingController's resources when the screen is removed from the tree.
+
+--- 3.2  Widget Tree (build method) ---
+
+  Scaffold
+  └── Body: SingleChildScrollView → Column
+        ├── Payee Info Card
+        │     - Full-width container with gradient background (primary→secondary color)
+        │     - Displays "Paying to", then payeeName (24px bold), then payeeAddress
+        │     - Has a drop shadow (blurRadius=15, offset y=8)
+        │
+        ├── Amount Input (TextField)
+        │     - Numeric keyboard (decimal allowed)
+        │     - Prefix text: '₹ ' in primary color, 32px
+        │     - Filled background, rounded (radius 16), no visible border by default
+        │     - When focused: 2px primary-color border appears
+        │
+        ├── Category Selector (Wrap of FilterChip widgets)
+        │     - Renders one FilterChip per category string
+        │     - Selecting a chip: sets _selectedCategory to that category
+        │     - Selecting again (deselect): sets _selectedCategory to null
+        │     - Only one can be selected at a time (no multi-select logic)
+        │     - Selected chips show white text on primary background with a checkmark
+        │
+        └── "Proceed to Pay" Button (full-width ElevatedButton, height 56)
+              → calls _processPayment()
+
+--- 3.3  Payment Processing: _processPayment() (async) ---
+
+  STEP 1 — Validate amount
+      Trims _amountController.text.
+      Fails if: empty, not parseable as double, or <= 0.
+      Shows red SnackBar and returns early on failure.
+
+  STEP 2 — Validate category
+      Fails if _selectedCategory is null.
+      Shows red SnackBar and returns early on failure.
+
+  STEP 3 — Construct UPI URI
+      Builds a Uri object:
+          scheme : 'upi'
+          host   : 'pay'
+          query params:
+              pa  = payeeAddress   (recipient UPI ID)
+              pn  = payeeName      (recipient name)
+              am  = amount         (amount as string)
+              cu  = 'INR'          (currency, hardcoded)
+              tn  = selectedCategory (used as transaction note/description)
+
+      Full URI example:
+          upi://pay?pa=someone@upi&pn=John&am=100&cu=INR&tn=Food
+
+  STEP 4 — Save transaction to SharedPreferences (local on-device storage)
+      Gets SharedPreferences instance.
+      Reads 'transactions' key (a List<String>, defaults to empty).
+      Constructs a Map with 5 fields:
+          payeeName, payeeAddress, amount, category, date (ISO 8601 string of DateTime.now())
+      JSON-encodes the Map with jsonEncode().
+      Appends the JSON string to the list.
+      Writes the updated list back with setStringList('transactions', ...).
+      Any failure here is silently logged to debugPrint (does NOT block payment).
+
+  STEP 5 — Generate a QR code image in memory
+      Shows a temporary SnackBar: "Generating payment QR code..."
+
+      Creates a QrPainter object:
+          data       = upiUri.toString() (the full UPI URI string)
+          version    = QrVersions.auto   (automatic QR version selection)
+          gapless    = false             (gaps between modules enabled)
+          color      = 0xFF000000        (black modules)
+          emptyColor = 0xFFFFFFFF        (white background)
+
+      Calls painter.toImageData(2048, format: png):
+          - Renders the QR code to a 2048×2048 pixel PNG in memory.
+          - Returns a ByteData object.
+          - If null, throws an exception.
+
+  STEP 6 — Write QR code image to a temporary file
+      Gets the OS temporary directory via getTemporaryDirectory().
+      Creates a File at: <tempDir>/upi_qr.png
+      Writes the raw PNG bytes (buffer.asUint8List()) to this file.
+      NOTE: This file is overwritten on every payment without any unique naming.
+
+  STEP 7 — Share the QR image via the OS share sheet
+      Calls Share.shareXFiles([XFile(file.path)], text: 'Scan to pay to <payeeName>')
+      This triggers the native Android/iOS share sheet, allowing the user to:
+          - Send the QR image via WhatsApp, Messages, email, etc.
+          - Save it to Photos/Gallery
+          - Any other sharing target installed on the device
+
+  Error handling (STEP 5–7):
+      Any exception in the QR generation or sharing block shows a red SnackBar
+      with the error details. The transaction record is already saved at this point.
+
+
+================================================================================
+SECTION 4 — TRANSACTIONS SCREEN (History)
+================================================================================
+
+Class: TransactionsScreen (StatefulWidget)
+State: _TransactionsScreenState
+
+--- 4.1  State Members ---
+
+  _transactions : List<Map<String, dynamic>> — decoded transaction records.
+                  Starts empty. Loaded during initState().
+
+--- 4.2  Lifecycle: initState() ---
+
+  Calls _loadTransactions() immediately when the screen is inserted into
+  the widget tree.
+
+--- 4.3  Loading Transactions: _loadTransactions() (async) ---
+
+  Gets SharedPreferences instance.
+  Reads 'transactions' key → List<String> (defaults to []).
+  JSON-decodes each string back into a Map<String, dynamic>.
+  Calls .reversed.toList() so the newest transactions appear at the top.
+  Calls setState() to trigger a rebuild with the loaded data.
+
+--- 4.4  Widget Tree (build method) ---
+
+  Scaffold
+  ├── AppBar: title = "Transactions"
+  └── Body:
+        Case A — _transactions is empty:
+            Center widget with Text("No transactions found")
+
+        Case B — _transactions has items:
+            ListView.builder iterating over each transaction map
+            Each item is a ListTile:
+                leading  : CircleAvatar with a payment icon (primaryContainer colors)
+                title    : payeeName (bold)
+                subtitle : "<category> • <day>/<month>/<year>"
+                trailing : "₹ <amount>" in bold greenAccent color (16px)
+
+  NOTE: There is no delete or clear history functionality. Transactions
+        accumulate indefinitely in SharedPreferences.
+
+
+================================================================================
+SECTION 5 — DATA STORAGE SCHEMA
+================================================================================
+
+Storage backend: SharedPreferences (key-value store on the device)
+
+Key: 'transactions'
+Type: List<String> (each element is a JSON string)
+
+Each JSON string decodes to a Map with these fields:
+
+  Field         Type     Description
+  ------------- -------- ------------------------------------------------
+  payeeName     String   Name of the payee (from QR or 'Unknown Payee')
+  payeeAddress  String   UPI ID of the payee (e.g., someone@bank)
+  amount        String   Amount entered by the user (numeric string)
+  category      String   Category selected by user (e.g., 'Food')
+  date          String   ISO 8601 timestamp of when "Proceed to Pay" was pressed
+
+  Example stored value:
+  {"payeeName":"John Doe","payeeAddress":"john@upi","amount":"250","category":"Food","date":"2026-05-14T10:30:00.000"}
+
+
+================================================================================
+SECTION 6 — NAVIGATION FLOW
+================================================================================
+
+  App Launch
+      │
+      ▼
+  ScannerScreen (home)   ←──────────────────────────────┐
+      │                                                   │
+      │  QR code detected & valid                         │
+      ▼                                                   │
+  PaymentDetailsScreen                                    │
+      │                                                   │
+      │  User presses Back (Android back / AppBar back)   │
+      └───────────────────────────────────────────────────┘
+      │
+      │  (OR from ScannerScreen AppBar history icon)
+      ▼
+  TransactionsScreen
+      │
+      │  User presses Back
+      ▼
+  ScannerScreen
+
+
+================================================================================
+SECTION 7 — EXTERNAL PACKAGES AND THEIR ROLES
+================================================================================
+
+  Package              Version    Role
+  -------------------- --------- -----------------------------------------------
+  mobile_scanner       ^7.2.0    Camera access + ML-based barcode/QR decoding.
+                                 Uses platform APIs (CameraX on Android,
+                                 AVFoundation on iOS) under the hood.
+
+  url_launcher         ^6.3.2    Imported but NOT used in current code. Likely
+                                 a leftover from an earlier version that launched
+                                 UPI apps directly via intent.
+
+  shared_preferences   ^2.5.5    On-device key-value storage. Uses
+                                 NSUserDefaults (iOS) or SharedPreferences XML
+                                 (Android) under the hood.
+
+  qr_flutter           ^4.1.0    Generates QR code graphics in-memory as a
+                                 Flutter canvas painter.
+
+  path_provider        ^2.1.5    Provides access to OS-defined directories,
+                                 specifically getTemporaryDirectory() here.
+
+  share_plus           ^13.1.0   Invokes the OS native share sheet to share
+                                 files (XFile) and text.
+
+  cupertino_icons      ^1.0.8    Provides iOS-style icons (not explicitly used
+                                 in current code but bundled as standard).
+
+
+================================================================================
+SECTION 8 — THINGS TO NOTE FOR GUIDELINE / RULE CHECKING
+================================================================================
+
+  1. TRANSACTION PERSISTENCE
+     - Transactions are saved to SharedPreferences BEFORE the QR code is
+       shared. A payment record is logged even if sharing fails or is cancelled.
+     - There is no "payment confirmation" from any UPI app. The app only
+       generates and shares a QR — it does not call any payment gateway.
+       A logged transaction does NOT mean money was transferred.
+
+  2. UPI URI CONSTRUCTION
+     - Currency is HARDCODED to 'INR'. There is no multi-currency support.
+     - The transaction note (tn) field is set to the selected CATEGORY string
+       (e.g., "Food"), not a user-typed note.
+
+  3. TEMPORARY FILE
+     - The QR image is written to <tempDir>/upi_qr.png.
+     - The file is overwritten on every payment with no unique filename.
+     - If two payments happen in quick succession (unlikely given the flow),
+       the first file could be overwritten before sharing completes.
+
+  4. PLAIN UPI ID INPUT
+     - If the QR code is simply a raw UPI ID string containing '@' (no upi://
+       prefix), the app accepts it as valid and sets payeeName to 'Unknown Payee'.
+     - Any string containing '@' that is NOT a UPI ID will be accepted
+       and treated as a payee address.
+
+  5. NO AMOUNT UPPER LIMIT
+     - The amount field accepts any positive numeric value. There is no
+       maximum payment cap enforced at the app level.
+
+  6. SCANNING GUARD
+     - _isScanning is a simple in-memory boolean. It resets to true when the
+       user navigates back. If the app is killed and relaunched, scanning
+       always starts enabled (no stale state issue).
+
+  7. url_launcher IS IMPORTED BUT UNUSED
+     - The import exists but no launchUrl() or canLaunchUrl() call is present.
+     - This may indicate a planned feature (direct UPI app launch) was removed
+       or not yet implemented.
+
+  8. NO AUTHENTICATION / AUTHORIZATION
+     - There is no PIN, biometric, or session check before the payment QR is
+       generated or the transaction history is viewed.
+
+  9. QR CODE SIZE
+     - QR codes are generated at 2048×2048 pixels. This is a high-resolution
+       render suitable for printing but may be excessive for in-app sharing.
+
+  10. SCREEN ORIENTATION
+      - Locked to portrait-up at the OS level via SystemChrome. Landscape
+        mode is completely disabled for all screens in the app.
+
+
+================================================================================
+SECTION 9 — PLAIN ENGLISH SUMMARY (FOR NON-TECHNICAL READERS)
+================================================================================
+
+  This is a mobile payment app that works like a middleman for UPI payments.
+  Here is what it does in simple terms:
+
+  1. You open the app and it turns on your camera.
+
+  2. You point the camera at a UPI QR code (like the ones you see at shops
+     or on payment requests).
+
+  3. The app reads the QR code and figures out who you are paying and
+     what their UPI ID is.
+
+  4. It then shows you a screen where you type in how much you want to pay,
+     and pick a category for the payment (like Food, Travel, Shopping etc.).
+
+  5. When you tap "Proceed to Pay", the app does two things:
+       a. It saves a record of this payment to your phone's memory so you
+          can see your history later.
+       b. It creates a NEW QR code that contains all the payment details
+          (who, how much, what for) and opens your phone's share menu —
+          so you can send this QR code via WhatsApp, email, or any other app.
+
+  6. The recipient can then scan this new QR code in their UPI app to
+     receive the money.
+
+  7. You can also tap the history icon at the top to see a list of all
+     past payments you have processed through this app.
+
+  IMPORTANT: This app does NOT directly send money. It only reads QR codes
+  and generates new ones. The actual transfer of money happens through
+  whatever UPI app the other person uses to scan your generated QR code.
+  The app has no way to confirm whether money was actually sent or received.
+
+================================================================================
+END OF DOCUMENT
+================================================================================
