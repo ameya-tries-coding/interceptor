@@ -6,9 +6,12 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>This app needs camera access to scan QR codes</string>
+	<key>NSContactsUsageDescription</key>
+	<string>This app needs contacts access to allow you to easily select and pay your contacts.</string>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>upi</string>
+		<string>tez</string>
 	</array>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>

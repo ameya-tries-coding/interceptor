@@ -9,6 +9,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:flutter_contacts/flutter_contacts.dart';
+
+
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -127,6 +130,14 @@ class _ScannerScreenState extends State<ScannerScreen> {
         elevation: 0,
         backgroundColor: Colors.transparent,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.contacts),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => const ContactsScreen()),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.history),
             onPressed: () {
@@ -274,7 +285,7 @@ class _PaymentDetailsScreenState extends State<PaymentDetailsScreen> {
       debugPrint('Failed to save transaction: $e');
     }
 
-    // Generate and share the QR code directly via intents
+    // Generate the QR code and share directly to GPay via intents
     try {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -282,8 +293,13 @@ class _PaymentDetailsScreenState extends State<PaymentDetailsScreen> {
         );
       }
 
+      final String noteStr = Uri.encodeQueryComponent(_selectedCategory!);
+      final String payeeNameStr = Uri.encodeQueryComponent(widget.payeeName);
+      // Adding mc=0000 per user request for merchant category code compatibility
+      final String upiUrl = 'upi://pay?pa=${widget.payeeAddress}&pn=$payeeNameStr&mc=0000&am=$amount&cu=INR&tn=$noteStr';
+
       final painter = QrPainter(
-        data: upiUri.toString(),
+        data: upiUrl,
         version: QrVersions.auto,
         gapless: false,
         color: const Color(0xFF000000),
@@ -297,15 +313,14 @@ class _PaymentDetailsScreenState extends State<PaymentDetailsScreen> {
       final file = File('${tempDir.path}/upi_qr.png');
       await file.writeAsBytes(picData.buffer.asUint8List());
 
-      // Share via intents using share_plus
-      await Share.shareXFiles(
-        [XFile(file.path)],
-        text: 'Scan to pay to ${widget.payeeName}',
-      );
+      // Directly share the image to GPay using MethodChannel
+      const platform = MethodChannel('com.example.intercept/share');
+      await platform.invokeMethod('shareToGPay', {'imagePath': file.path});
+
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to share QR: $e'), backgroundColor: Colors.redAccent),
+          SnackBar(content: Text('Failed to generate/share QR: $e'), backgroundColor: Colors.redAccent),
         );
       }
     }
@@ -513,3 +528,107 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     );
   }
 }
+
+class ContactsScreen extends StatefulWidget {
+  const ContactsScreen({super.key});
+
+  @override
+  State<ContactsScreen> createState() => _ContactsScreenState();
+}
+
+class _ContactsScreenState extends State<ContactsScreen> {
+  List<Contact>? _contacts;
+  bool _permissionDenied = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchContacts();
+  }
+
+  Future<void> _fetchContacts() async {
+    if (!await FlutterContacts.requestPermission(readonly: true)) {
+      setState(() => _permissionDenied = true);
+    } else {
+      final contacts = await FlutterContacts.getContacts(withProperties: true);
+      setState(() => _contacts = contacts);
+    }
+  }
+
+  void _onContactSelected(Contact contact) {
+    if (contact.phones.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No phone number found for this contact')),
+      );
+      return;
+    }
+
+    // Sanitize the phone number
+    String rawNumber = contact.phones.first.number;
+    String sanitizedNumber = rawNumber.replaceAll(RegExp(r'\D'), '');
+    
+    // Remove country code if it starts with 91 and length is 12 (India)
+    if (sanitizedNumber.startsWith('91') && sanitizedNumber.length == 12) {
+      sanitizedNumber = sanitizedNumber.substring(2);
+    } else if (sanitizedNumber.length > 10) {
+       // just a fallback to take last 10 digits for Indian numbers
+       sanitizedNumber = sanitizedNumber.substring(sanitizedNumber.length - 10);
+    }
+
+    // Auto-construct VPA
+    final String vpa = '$sanitizedNumber@paytm';
+    final String payeeName = contact.displayName;
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (context) => PaymentDetailsScreen(
+          payeeAddress: vpa,
+          payeeName: payeeName,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_permissionDenied) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Contacts')),
+        body: const Center(child: Text('Permission denied to access contacts.')),
+      );
+    }
+    if (_contacts == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Contacts')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final contactsWithPhones = _contacts!.where((c) => c.phones.isNotEmpty).toList();
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Pay Contacts', style: TextStyle(fontWeight: FontWeight.bold)),
+      ),
+      body: ListView.builder(
+        itemCount: contactsWithPhones.length,
+        itemBuilder: (context, index) {
+          final contact = contactsWithPhones[index];
+          return ListTile(
+            leading: CircleAvatar(
+              backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+              child: Text(
+                contact.displayName.isNotEmpty ? contact.displayName[0].toUpperCase() : '?',
+                style: TextStyle(color: Theme.of(context).colorScheme.onPrimaryContainer),
+              ),
+            ),
+            title: Text(contact.displayName),
+            subtitle: Text(contact.phones.first.number),
+            onTap: () => _onContactSelected(contact),
+          );
+        },
+      ),
+    );
+  }
+}
+
