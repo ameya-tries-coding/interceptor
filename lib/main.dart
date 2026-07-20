@@ -2,13 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'core/utils/service_locator.dart';
 import 'features/scanner/scanner_screen.dart';
+import 'services/sms_integration_service.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   
   // Initialize dependency injection
   setupLocator();
+  
+  // Initialize SMS listener
+  await locator<SmsIntegrationService>().initialize();
   
   runApp(const MyApp());
 }

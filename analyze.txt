@@ -1,0 +1,24 @@
+Analyzing interceptor...                                        
+
+   info • Don't invoke 'print' in production code • demo.dart:95:5 • avoid_print
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/features/payments/payment_details_screen.dart:137:65 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/features/payments/payment_details_screen.dart:138:67 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/features/payments/payment_details_screen.dart:146:72 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/features/payments/payment_details_screen.dart:155:80 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/features/payments/payment_details_screen.dart:159:88 • deprecated_member_use
+   info • 'surfaceVariant' is deprecated and shouldn't be used. Use surfaceContainerHighest instead. This feature was deprecated after v3.18.0-0.1.pre • lib/features/payments/payment_details_screen.dart:175:64 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/features/payments/payment_details_screen.dart:175:79 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/features/payments/payment_details_screen.dart:201:123 • deprecated_member_use
+   info • 'surfaceVariant' is deprecated and shouldn't be used. Use surfaceContainerHighest instead. This feature was deprecated after v3.18.0-0.1.pre • lib/features/payments/payment_details_screen.dart:215:64 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/features/payments/payment_details_screen.dart:215:79 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/features/scanner/scanner_screen.dart:160:67 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/features/scanner/scanner_screen.dart:161:67 • deprecated_member_use
+   info • Unnecessary 'this.' qualifier • lib/models/transaction_model.dart:71:27 • unnecessary_this
+   info • Unnecessary 'this.' qualifier • lib/models/transaction_model.dart:77:18 • unnecessary_this
+   info • The imported package 'collection' isn't a dependency of the importing package • lib/services/transaction_matching_service_impl.dart:2:8 • depend_on_referenced_packages
+   info • The import of 'package:flutter/material.dart' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/services.dart' • lib/services/upi_payment_service.dart:6:8 • unnecessary_import
+   info • 'color' is deprecated and shouldn't be used. use colors in eyeStyle and dataModuleStyle instead • lib/services/upi_payment_service.dart:33:9 • deprecated_member_use
+   info • 'emptyColor' is deprecated and shouldn't be used. You should use the background color value of your container widget • lib/services/upi_payment_service.dart:34:9 • deprecated_member_use
+   info • Library names are not necessary • packages/sms_ingress/lib/sms_ingress.dart:1:9 • unnecessary_library_name
+   info • Don't invoke 'print' in production code • packages/sms_ingress/lib/sms_ingress.dart:103:5 • avoid_print
+

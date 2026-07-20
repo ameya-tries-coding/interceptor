@@ -41,6 +41,9 @@ dependencies:
   uuid: ^4.4.0
   qr_flutter: ^4.1.0
   path_provider: ^2.1.5
+  sms_ingress:
+    path: packages/sms_ingress
+  collection: ^1.19.1
 
 dev_dependencies:
   flutter_test:
