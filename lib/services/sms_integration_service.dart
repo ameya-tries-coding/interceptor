@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:sms_ingress/sms_ingress.dart';
 import 'transaction_matching_service.dart';
 import '../core/utils/service_locator.dart';
@@ -5,6 +6,9 @@ import 'package:flutter/foundation.dart';
 
 class SmsIntegrationService {
   late final SmsIngress _smsIngress;
+  
+  final StreamController<void> _onReconciliationCompleteController = StreamController<void>.broadcast();
+  Stream<void> get onReconciliationComplete => _onReconciliationCompleteController.stream;
 
   SmsIntegrationService() {
     _smsIngress = SmsIngress();
@@ -25,10 +29,14 @@ class SmsIntegrationService {
       
       final matchingService = locator<TransactionMatchingService>();
       await matchingService.reconcileTransaction(parsedSms);
+      
+      // Notify the UI that the database has been updated
+      _onReconciliationCompleteController.add(null);
     });
   }
 
   void dispose() {
     _smsIngress.dispose();
+    _onReconciliationCompleteController.close();
   }
 }

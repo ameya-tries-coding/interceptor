@@ -70,6 +70,9 @@ class TransactionMatchingServiceImpl implements TransactionMatchingService {
         txnRef: parsedSmsData.upiReference,
         smsId: parsedSmsData.smsId.toString(),
         smsLinked: true,
+        rawSms: parsedSmsData.rawSms,
+        accountLastDigits: parsedSmsData.accountLastDigits,
+        sender: parsedSmsData.sender,
       );
       await _repository.updateTransaction(updatedTxn);
     } else {
@@ -83,6 +86,9 @@ class TransactionMatchingServiceImpl implements TransactionMatchingService {
         transactionStatus: TransactionStatus.success,
         txnRef: parsedSmsData.upiReference,
         smsLinked: true,
+        rawSms: parsedSmsData.rawSms,
+        accountLastDigits: parsedSmsData.accountLastDigits,
+        sender: parsedSmsData.sender,
         createdAt: parsedSmsData.smsReceivedTime ?? DateTime.now(),
       );
       await _repository.saveTransaction(newSmsTxn);

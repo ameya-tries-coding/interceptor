@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import '../../core/utils/service_locator.dart';
 import '../../models/transaction_model.dart';
 import '../../services/transaction_repository.dart';
+import '../../services/sms_integration_service.dart';
+import 'transaction_details_screen.dart';
+import 'dart:async';
 
 class TransactionsScreen extends StatefulWidget {
   const TransactionsScreen({super.key});
@@ -13,6 +16,7 @@ class TransactionsScreen extends StatefulWidget {
 class _TransactionsScreenState extends State<TransactionsScreen> {
   List<TransactionModel> _transactions = [];
   bool _isLoading = true;
+  StreamSubscription? _smsSubscription;
 
   final _txRepository = locator<TransactionRepository>();
 
@@ -20,6 +24,20 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   void initState() {
     super.initState();
     _loadTransactions();
+    
+    _smsSubscription = locator<SmsIntegrationService>()
+        .onReconciliationComplete
+        .listen((_) {
+      if (mounted) {
+        _loadTransactions();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _smsSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadTransactions() async {
@@ -71,6 +89,14 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                   ),
                   trailing: Text('₹ ${tx.amount.toStringAsFixed(2)}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   isThreeLine: true,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => TransactionDetailsScreen(transaction: tx),
+                      ),
+                    ).then((_) => _loadTransactions());
+                  },
                 );
               },
             ),

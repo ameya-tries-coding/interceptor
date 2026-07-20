@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../payments/payment_details_screen.dart';
-import '../contacts/contacts_screen.dart';
-import '../transactions/transactions_screen.dart';
 
 class ScannerScreen extends StatefulWidget {
   const ScannerScreen({super.key});
@@ -101,32 +99,6 @@ class _ScannerScreenState extends State<ScannerScreen> {
         centerTitle: true,
         elevation: 0,
         backgroundColor: Colors.transparent,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.contacts),
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (context) => const ContactsScreen()),
-              ).then((_) {
-                if (mounted) {
-                  setState(() { _isScanning = true; });
-                }
-              });
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.history),
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (context) => const TransactionsScreen()),
-              ).then((_) {
-                if (mounted) {
-                  setState(() { _isScanning = true; });
-                }
-              });
-            },
-          ),
-        ],
       ),
       extendBodyBehindAppBar: true,
       body: Stack(

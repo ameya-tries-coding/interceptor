@@ -41,6 +41,8 @@ class SmsParser {
         strategy = BobParser();
       } else if (bankCode.contains("SARASW")) {
         strategy = SaraswatParser();
+      } else if (bankCode.contains("ICICI")) {
+        strategy = IciciParser();
       } else {
         // Fallback for unknown banks
         strategy = DefaultParser();

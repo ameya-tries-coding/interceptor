@@ -95,16 +95,20 @@ class SbiParser extends BankParserStrategy {
     final isDebit = bodyLower.contains("debited");
     if (!isCredit && !isDebit) return null;
 
-    // SBI uses "debited by 450.45"
     final amount = extractAmount(body, RegExp(r'(?:by|Rs\.?)\s*([\d,]+\.?\d*)', caseSensitive: false));
-    final accountMatch = RegExp(r'A/C\s*[xX*]+(\d+)', caseSensitive: false).firstMatch(body);
+    final accountMatch = RegExp(r'A/c\s*[xX*]+(\d+)', caseSensitive: false).firstMatch(body);
     
     String? merchant;
-    final merchantMatch = RegExp(r'trf to\s+(.*?)\s+Refno', caseSensitive: false).firstMatch(body);
-    if (merchantMatch != null) merchant = merchantMatch.group(1)?.trim();
+    if (isDebit) {
+      final merchantMatch = RegExp(r'(?:trf to|transfer to)\s+(.*?)\s+(?:Refno|Ref No)', caseSensitive: false).firstMatch(body);
+      merchant = merchantMatch?.group(1)?.trim();
+    } else {
+      final merchantMatch = RegExp(r'(?:trf from|transfer from)\s+(.*?)\s+(?:Refno|Ref No)', caseSensitive: false).firstMatch(body);
+      merchant = merchantMatch?.group(1)?.trim();
+    }
 
-    final upiMatch = RegExp(r'Refno\s*(\d+)', caseSensitive: false).firstMatch(body);
-    final dateMatch = RegExp(r'date\s+(\d{2}[a-zA-Z]{3}\d{2})', caseSensitive: false).firstMatch(body);
+    final upiMatch = RegExp(r'Ref\s?No\.?\s*(\d+)', caseSensitive: false).firstMatch(body);
+    final dateMatch = RegExp(r'(?:date|on)\s+(\d{2}[a-zA-Z]{3}\d{2})', caseSensitive: false).firstMatch(body);
 
     return ParsedSms(
       smsId: id, rawSms: body, sender: sender, amount: amount, accountLastDigits: accountMatch?.group(1),
@@ -262,6 +266,45 @@ class DefaultParser extends BankParserStrategy {
       accountLastDigits: accountMatch?.group(1), merchant: merchant, 
       transactionDate: dateMatch?.group(1), smsReceivedTime: receivedTime,
       upiReference: upiMatch?.group(1), isCredit: isCredit == true || isDebit == false,
+    );
+  }
+}
+
+class IciciParser extends BankParserStrategy {
+  @override
+  ParsedSms? parse(int id, String sender, String body, DateTime receivedTime) {
+    // Flatten body to remove newlines for easier regex parsing
+    final cleanBody = body.replaceAll('\n', ' ').replaceAll('\r', ' ');
+    final bodyLower = cleanBody.toLowerCase();
+    
+    bool isCredit = false;
+    if (bodyLower.contains("debited for") || bodyLower.contains("debited from")) {
+      isCredit = false;
+    } else if (bodyLower.contains("credited:") || bodyLower.contains("credited with") || bodyLower.contains("credited to")) {
+      isCredit = true;
+    } else {
+      return null;
+    }
+
+    final amount = extractAmount(cleanBody, RegExp(r'(?:Rs\.?|INR)\s*([\d,]+\.?\d*)', caseSensitive: false));
+    final accountMatch = RegExp(r'(?:Acct|Account)\s*[xX*]+(\d+)', caseSensitive: false).firstMatch(cleanBody);
+    
+    String? merchant;
+    if (!isCredit) {
+      final merchantMatch = RegExp(r';\s*(.*?)\s+credited\.', caseSensitive: false).firstMatch(cleanBody);
+      merchant = merchantMatch?.group(1)?.trim();
+    } else {
+      final merchantMatch = RegExp(r'Info\s*(.*?)\.\s*Available', caseSensitive: false).firstMatch(cleanBody);
+      merchant = merchantMatch?.group(1)?.trim();
+    }
+
+    final upiMatch = RegExp(r'UPI[:\s]*(\d+)', caseSensitive: false).firstMatch(cleanBody);
+    final dateMatch = RegExp(r'on\s+(\d{2}-[a-zA-Z]{3}-\d{2})', caseSensitive: false).firstMatch(cleanBody);
+
+    return ParsedSms(
+      smsId: id, rawSms: body, sender: sender, amount: amount, accountLastDigits: accountMatch?.group(1),
+      merchant: merchant, transactionDate: dateMatch?.group(1), smsReceivedTime: receivedTime,
+      upiReference: upiMatch?.group(1), isCredit: isCredit,
     );
   }
 }

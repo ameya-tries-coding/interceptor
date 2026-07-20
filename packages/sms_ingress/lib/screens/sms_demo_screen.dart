@@ -87,7 +87,6 @@ class _SmsDemoScreenState extends State<SmsDemoScreen> {
                               ),
                           ],
                         ),
-                        Text('Tag: ${sms.tag}'),
                         Text('Amount: ${sms.amount}'),
                         Text('Account: ${sms.accountLastDigits}'),
                         Text('Merchant: ${sms.merchant}'),
