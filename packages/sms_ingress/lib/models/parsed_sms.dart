@@ -25,6 +25,34 @@ class ParsedSms {
     this.isCredit,
   });
 
+  ParsedSms copyWith({
+    int? smsId,
+    String? rawSms,
+    String? sender,
+    double? amount,
+    String? accountLastDigits,
+    String? merchant,
+    String? transactionDate,
+    DateTime? smsReceivedTime,
+    String? upiReference,
+    String? tag,
+    bool? isCredit,
+  }) {
+    return ParsedSms(
+      smsId: smsId ?? this.smsId,
+      rawSms: rawSms ?? this.rawSms,
+      sender: sender ?? this.sender,
+      amount: amount ?? this.amount,
+      accountLastDigits: accountLastDigits ?? this.accountLastDigits,
+      merchant: merchant ?? this.merchant,
+      transactionDate: transactionDate ?? this.transactionDate,
+      smsReceivedTime: smsReceivedTime ?? this.smsReceivedTime,
+      upiReference: upiReference ?? this.upiReference,
+      tag: tag ?? this.tag,
+      isCredit: isCredit ?? this.isCredit,
+    );
+  }
+
   Map<String, dynamic> toJson() => {
     'smsId': smsId,
     'rawSms': rawSms,

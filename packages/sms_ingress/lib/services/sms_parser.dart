@@ -1,63 +1,49 @@
 import '../models/parsed_sms.dart';
 import 'bank_parsers.dart';
+import 'sender_registry.dart';
+import 'global_parser_engine.dart';
 
 class SmsParser {
   // O(1) Runtime Cache to instantly resolve known sender IDs
-  static final Map<String, BankParserStrategy> _parserCache = {};
+  static final Map<String, BankParserOverride> _parserCache = {};
 
   static ParsedSms? parse(int id, String sender, String body, DateTime receivedTime) {
     final senderUpper = sender.toUpperCase();
 
     // 1. Mandatory Promotional Filter: Only parse -S (Transactional) or -T (OTP/Transaction)
-    // This explicitly blocks -P (Promotional) tags.
     if (!senderUpper.endsWith("-S") && !senderUpper.contains("-S-") && 
         !senderUpper.endsWith("-T") && !senderUpper.contains("-T-")) {
-      return null; // Drop promotional messages immediately
+      return null;
     }
 
-    // 2. Check Cache First (O(1) Lookup)
-    BankParserStrategy? strategy = _parserCache[senderUpper];
+    // 2. Global Baseline Extraction (includes Gatekeeper)
+    ParsedSms? baseline = GlobalParserEngine.extractBaseline(id, sender, body, receivedTime);
+    if (baseline == null) return null;
 
-    // 3. If not in cache, resolve it
+    // 3. Resolve Bank Code
+    String bankCode = SenderRegistry.resolveBankCode(senderUpper);
+
+    // 4. Find Override Strategy
+    BankParserOverride? strategy = _parserCache[bankCode];
     if (strategy == null) {
-      // Isolate the Bank Code by splitting out the Telecom prefixes (XY-) and suffixes (-S)
-      String bankCode = senderUpper;
-      final parts = senderUpper.split('-');
-      if (parts.length >= 2) {
-        bankCode = parts[1]; // Extracts "HDFCBK" from "AD-HDFCBK-S"
-      }
+      if (bankCode == "KOTAK") strategy = KotakParser();
+      else if (bankCode == "HDFC") strategy = HdfcParser();
+      else if (bankCode == "SBI") strategy = SbiParser();
+      else if (bankCode == "BOI") strategy = BoiParser();
+      else if (bankCode == "IDBI") strategy = IdbiParser();
+      else if (bankCode == "BOB") strategy = BobParser();
+      else if (bankCode == "SARASWAT") strategy = SaraswatParser();
+      else if (bankCode == "ICICI") strategy = IciciParser();
+      else strategy = DefaultParser();
 
-      if (bankCode.contains("KOTAK")) {
-        strategy = KotakParser();
-      } else if (bankCode.contains("HDFC")) {
-        strategy = HdfcParser();
-      } else if (bankCode.contains("SBI")) {
-        strategy = SbiParser();
-      } else if (bankCode.contains("BOI")) {
-        strategy = BoiParser();
-      } else if (bankCode.contains("IDBI")) {
-        strategy = IdbiParser();
-      } else if (bankCode.contains("BOB")) {
-        strategy = BobParser();
-      } else if (bankCode.contains("SARASW")) {
-        strategy = SaraswatParser();
-      } else if (bankCode.contains("ICICI")) {
-        strategy = IciciParser();
-      } else {
-        // Fallback for unknown banks
-        strategy = DefaultParser();
-      }
-
-      // Cache the resolved strategy so future SMS from this exact sender are O(1)
-      _parserCache[senderUpper] = strategy;
+      _parserCache[bankCode] = strategy;
     }
 
-    // Call the specific strategy
-    final parsedSms = strategy.parse(id, sender, body, receivedTime);
+    // 5. Apply Overrides
+    final finalParsed = strategy.applyOverride(baseline);
 
-    // Ensure it was a valid transaction by checking if amount exists
-    if (parsedSms != null && parsedSms.amount != null) {
-      return parsedSms;
+    if (finalParsed.amount != null) {
+      return finalParsed;
     }
 
     return null;
