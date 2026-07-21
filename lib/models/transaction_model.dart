@@ -29,6 +29,10 @@ class TransactionModel {
   final String? responseCode;
   final String? smsId;
   final bool smsLinked;
+  final String? rawSms;
+  final String? accountLastDigits;
+  final String? sender;
+  final bool isCredit;
 
   TransactionModel({
     String? localTransactionId,
@@ -47,6 +51,10 @@ class TransactionModel {
     this.responseCode,
     this.smsId,
     this.smsLinked = false,
+    this.rawSms,
+    this.accountLastDigits,
+    this.sender,
+    this.isCredit = false,
   })  : localTransactionId = localTransactionId ?? const Uuid().v4(),
         createdAt = createdAt ?? DateTime.now(),
         updatedAt = updatedAt ?? DateTime.now();
@@ -66,6 +74,10 @@ class TransactionModel {
     String? responseCode,
     String? smsId,
     bool? smsLinked,
+    String? rawSms,
+    String? accountLastDigits,
+    String? sender,
+    bool? isCredit,
   }) {
     return TransactionModel(
       localTransactionId: this.localTransactionId,
@@ -84,6 +96,10 @@ class TransactionModel {
       responseCode: responseCode ?? this.responseCode,
       smsId: smsId ?? this.smsId,
       smsLinked: smsLinked ?? this.smsLinked,
+      rawSms: rawSms ?? this.rawSms,
+      accountLastDigits: accountLastDigits ?? this.accountLastDigits,
+      sender: sender ?? this.sender,
+      isCredit: isCredit ?? this.isCredit,
     );
   }
 
@@ -105,6 +121,10 @@ class TransactionModel {
       'responseCode': responseCode,
       'smsId': smsId,
       'smsLinked': smsLinked,
+      'rawSms': rawSms,
+      'accountLastDigits': accountLastDigits,
+      'sender': sender,
+      'isCredit': isCredit,
     };
   }
 
@@ -132,6 +152,10 @@ class TransactionModel {
       responseCode: json['responseCode'],
       smsId: json['smsId'],
       smsLinked: json['smsLinked'] ?? false,
+      rawSms: json['rawSms'],
+      accountLastDigits: json['accountLastDigits'],
+      sender: json['sender'],
+      isCredit: json['isCredit'] ?? false,
     );
   }
 }

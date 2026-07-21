@@ -102,7 +102,7 @@ class _PaymentDetailsScreenState extends State<PaymentDetailsScreen> {
       // This ensures that when they eventually press back from GPay, they land on a fresh scanner.
       Future.delayed(const Duration(milliseconds: 1500), () {
         if (mounted) {
-          Navigator.of(context).pop();
+          Navigator.of(context).popUntil((route) => route.isFirst);
         }
       });
     }

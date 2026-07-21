@@ -1,3 +1,4 @@
+import 'package:sms_ingress/sms_ingress.dart';
 import '../models/transaction_model.dart';
 
 /// Service interface for future SMS matching integration.
@@ -17,5 +18,5 @@ abstract class TransactionMatchingService {
   });
 
   /// Automatically reconciles transactions if a strong deduplication key match (approvalRefNo) is found.
-  Future<void> reconcileTransaction(Map<String, dynamic> parsedSmsData);
+  Future<void> reconcileTransaction(ParsedSms parsedSmsData);
 }

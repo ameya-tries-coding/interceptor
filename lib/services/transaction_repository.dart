@@ -6,6 +6,7 @@ abstract class TransactionRepository {
   Future<void> saveTransaction(TransactionModel transaction);
   Future<List<TransactionModel>> getAllTransactions();
   Future<void> updateTransaction(TransactionModel transaction);
+  Future<void> deleteTransaction(String localTransactionId);
 }
 
 class SharedPreferencesTransactionRepository implements TransactionRepository {
@@ -50,5 +51,20 @@ class SharedPreferencesTransactionRepository implements TransactionRepository {
       // If it doesn't exist, we save it
       await saveTransaction(transaction);
     }
+  }
+
+  @override
+  Future<void> deleteTransaction(String localTransactionId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final List<String> txStrings = prefs.getStringList(_storageKey) ?? [];
+    
+    List<TransactionModel> txList = txStrings
+        .map((s) => TransactionModel.fromJson(jsonDecode(s) as Map<String, dynamic>))
+        .toList();
+
+    txList.removeWhere((tx) => tx.localTransactionId == localTransactionId);
+    
+    final updatedStrings = txList.map((tx) => jsonEncode(tx.toJson())).toList();
+    await prefs.setStringList(_storageKey, updatedStrings);
   }
 }
