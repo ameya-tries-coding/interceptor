@@ -151,24 +151,30 @@ class IdbiParser extends BankParserStrategy {
   @override
   ParsedSms? parse(int id, String sender, String body, DateTime receivedTime) {
     final bodyLower = body.toLowerCase();
-    final isCredit = bodyLower.startsWith("credit:-");
-    final isDebit = bodyLower.startsWith("debit:-");
+    
+    final isCredit = bodyLower.startsWith("credit:-") || bodyLower.contains("is credited with");
+    final isDebit = bodyLower.startsWith("debit:-") || bodyLower.contains("is debited with");
     if (!isCredit && !isDebit) return null;
 
-    final amount = extractAmount(body, RegExp(r'(?:Rs|INR)\s*([\d,]+\.?\d*)', caseSensitive: false));
-    final accountMatch = RegExp(r'Acct\s*[xX*]+(\d+)', caseSensitive: false).firstMatch(body);
+    final amount = extractAmount(body, RegExp(r'(?:Rs\.?|INR)\s*([\d,]+\.?\d*)', caseSensitive: false));
+    final accountMatch = RegExp(r'(?:Acct|A/c)\s*[xX*]+(\d+)', caseSensitive: false).firstMatch(body);
     
     String? merchant;
     if (isDebit) {
-      final merchantMatch = RegExp(r'Bal Rs[\d\s.]+(.*?)\s+credited\.', caseSensitive: false).firstMatch(body);
+      final merchantMatch = RegExp(r'to\s+(.*?)\.\s*UPI:', caseSensitive: false).firstMatch(body);
       merchant = merchantMatch?.group(1)?.trim();
+      
+      if (merchant == null) {
+        final oldMerchantMatch = RegExp(r'Bal Rs[\d\s.]+(.*?)\s+credited\.', caseSensitive: false).firstMatch(body);
+        merchant = oldMerchantMatch?.group(1)?.trim();
+      }
     } else {
-      final merchantMatch = RegExp(r'from\s+(.*?)\.\s+UPI:', caseSensitive: false).firstMatch(body);
+      final merchantMatch = RegExp(r'from\s+(.*?)\.\s*UPI:', caseSensitive: false).firstMatch(body);
       merchant = merchantMatch?.group(1)?.trim();
     }
 
-    final upiMatch = RegExp(r'UPI:(\d+)', caseSensitive: false).firstMatch(body);
-    final dateMatch = RegExp(r'on\s+(\d{2}-[a-zA-Z]{3}-\d{2})', caseSensitive: false).firstMatch(body);
+    final upiMatch = RegExp(r'UPI[:\s]*(\d+)', caseSensitive: false).firstMatch(body);
+    final dateMatch = RegExp(r'on\s+(\d{2}-[a-zA-Z]{3}-\d{2,4})', caseSensitive: false).firstMatch(body);
 
     return ParsedSms(
       smsId: id, rawSms: body, sender: sender, amount: amount, accountLastDigits: accountMatch?.group(1),

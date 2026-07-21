@@ -18,13 +18,14 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _uncategorizedCount = 0;
   StreamSubscription? _smsSubscription;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _checkPermissions();
     _loadUncategorizedCount();
     
@@ -39,8 +40,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _smsSubscription?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // The app has come back to the foreground from a paused state.
+      // Force process any SMS that arrived while the UI was asleep.
+      locator<SmsIntegrationService>().processBacklog();
+    }
   }
 
   Future<void> _checkPermissions() async {

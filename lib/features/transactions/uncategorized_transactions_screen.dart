@@ -18,6 +18,7 @@ class _UncategorizedTransactionsScreenState extends State<UncategorizedTransacti
   final PageController _pageController = PageController();
 
   final TextEditingController _payeeController = TextEditingController();
+  final TextEditingController _amountController = TextEditingController();
   final TextEditingController _noteController = TextEditingController();
   String _selectedCategory = 'Food';
 
@@ -53,6 +54,7 @@ class _UncategorizedTransactionsScreenState extends State<UncategorizedTransacti
   void _updateControllers(int index) {
     if (index < _transactions.length) {
       _payeeController.text = _transactions[index].payeeName;
+      _amountController.text = _transactions[index].amount.toStringAsFixed(2);
       _noteController.clear();
       _selectedCategory = 'Food';
     }
@@ -62,6 +64,7 @@ class _UncategorizedTransactionsScreenState extends State<UncategorizedTransacti
     final txn = _transactions[index];
     final updated = txn.copyWith(
       payeeName: _payeeController.text,
+      amount: double.tryParse(_amountController.text) ?? txn.amount,
       category: _selectedCategory,
       note: _noteController.text,
     );
@@ -118,18 +121,43 @@ class _UncategorizedTransactionsScreenState extends State<UncategorizedTransacti
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Center(
-                    child: Text(
-                      'Transaction ${index + 1} of ${_transactions.length}',
-                      style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold),
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Transaction ${index + 1} of ${_transactions.length}',
+                        style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: txn.isCredit ? Colors.green.withOpacity(0.2) : Colors.red.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: txn.isCredit ? Colors.green : Colors.red),
+                        ),
+                        child: Text(
+                          txn.isCredit ? 'CREDIT' : 'DEBIT',
+                          style: TextStyle(
+                            color: txn.isCredit ? Colors.greenAccent : Colors.redAccent,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 24),
-                  Center(
-                    child: Text(
-                      '₹${txn.amount.toStringAsFixed(2)}',
-                      style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold),
+                  const Text('Amount', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _amountController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      filled: true,
+                      prefixText: '₹ ',
                     ),
+                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
                   Center(

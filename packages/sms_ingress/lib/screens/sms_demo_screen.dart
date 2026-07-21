@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import '../sms_ingress.dart';
 
 class SmsDemoScreen extends StatefulWidget {
@@ -11,6 +12,7 @@ class SmsDemoScreen extends StatefulWidget {
 class _SmsDemoScreenState extends State<SmsDemoScreen> {
   final SmsIngress _ingress = SmsIngress();
   String _status = "Initializing...";
+  StreamSubscription? _subscription;
 
   @override
   void initState() {
@@ -32,7 +34,7 @@ class _SmsDemoScreenState extends State<SmsDemoScreen> {
           _status = "Listening for incoming SMS...";
         });
       }
-      _ingress.onParsedSms.listen((_) {
+      _subscription = _ingress.onParsedSms.listen((_) {
         if (mounted) {
           setState(() {}); // Rebuild to show new messages
         }
@@ -48,7 +50,7 @@ class _SmsDemoScreenState extends State<SmsDemoScreen> {
 
   @override
   void dispose() {
-    _ingress.dispose();
+    _subscription?.cancel();
     super.dispose();
   }
 

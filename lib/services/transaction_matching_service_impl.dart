@@ -43,10 +43,13 @@ class TransactionMatchingServiceImpl implements TransactionMatchingService {
 
   @override
   Future<void> reconcileTransaction(ParsedSms parsedSmsData) async {
-    if (parsedSmsData.isCredit == true) return; // Only care about debits for now
-    if (parsedSmsData.amount == null) return;
-
     final transactions = await _repository.getAllTransactions();
+    
+    // Check if this SMS has already been processed
+    final smsIdString = parsedSmsData.smsId.toString();
+    if (transactions.any((t) => t.smsId == smsIdString)) {
+      return;
+    }
     
     // Look for pending interceptor payments
     final pendingTransactions = transactions.where((t) => 
@@ -85,10 +88,12 @@ class TransactionMatchingServiceImpl implements TransactionMatchingService {
         source: TransactionSource.sms,
         transactionStatus: TransactionStatus.success,
         txnRef: parsedSmsData.upiReference,
+        smsId: parsedSmsData.smsId.toString(),
         smsLinked: true,
         rawSms: parsedSmsData.rawSms,
         accountLastDigits: parsedSmsData.accountLastDigits,
         sender: parsedSmsData.sender,
+        isCredit: parsedSmsData.isCredit ?? false,
         createdAt: parsedSmsData.smsReceivedTime ?? DateTime.now(),
       );
       await _repository.saveTransaction(newSmsTxn);

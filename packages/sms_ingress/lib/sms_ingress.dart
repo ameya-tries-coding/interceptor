@@ -42,8 +42,13 @@ void onBackgroundMessage(SmsMessage message) async {
 }
 
 class SmsIngress {
+  static final SmsIngress _instance = SmsIngress._internal();
+  factory SmsIngress() => _instance;
+  SmsIngress._internal();
+
   final Telephony _telephony = Telephony.instance;
   final Set<int> _parsedSmsIds = {};
+  bool _isListening = false;
   
   final StreamController<ParsedSms> _onParsedSmsController = StreamController<ParsedSms>.broadcast();
   Stream<ParsedSms> get onParsedSms => _onParsedSmsController.stream;
@@ -69,6 +74,9 @@ class SmsIngress {
   }
 
   void startListening() {
+    if (_isListening) return;
+    _isListening = true;
+
     IsolateNameServer.removePortNameMapping(_isolateName);
     IsolateNameServer.registerPortWithName(_receivePort.sendPort, _isolateName);
     

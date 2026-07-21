@@ -32,6 +32,7 @@ class TransactionModel {
   final String? rawSms;
   final String? accountLastDigits;
   final String? sender;
+  final bool isCredit;
 
   TransactionModel({
     String? localTransactionId,
@@ -53,6 +54,7 @@ class TransactionModel {
     this.rawSms,
     this.accountLastDigits,
     this.sender,
+    this.isCredit = false,
   })  : localTransactionId = localTransactionId ?? const Uuid().v4(),
         createdAt = createdAt ?? DateTime.now(),
         updatedAt = updatedAt ?? DateTime.now();
@@ -75,6 +77,7 @@ class TransactionModel {
     String? rawSms,
     String? accountLastDigits,
     String? sender,
+    bool? isCredit,
   }) {
     return TransactionModel(
       localTransactionId: this.localTransactionId,
@@ -96,6 +99,7 @@ class TransactionModel {
       rawSms: rawSms ?? this.rawSms,
       accountLastDigits: accountLastDigits ?? this.accountLastDigits,
       sender: sender ?? this.sender,
+      isCredit: isCredit ?? this.isCredit,
     );
   }
 
@@ -120,6 +124,7 @@ class TransactionModel {
       'rawSms': rawSms,
       'accountLastDigits': accountLastDigits,
       'sender': sender,
+      'isCredit': isCredit,
     };
   }
 
@@ -150,6 +155,7 @@ class TransactionModel {
       rawSms: json['rawSms'],
       accountLastDigits: json['accountLastDigits'],
       sender: json['sender'],
+      isCredit: json['isCredit'] ?? false,
     );
   }
 }

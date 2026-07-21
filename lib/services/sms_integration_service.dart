@@ -21,7 +21,8 @@ class SmsIntegrationService {
       return;
     }
 
-    await _smsIngress.initializeStorage();
+    await processBacklog();
+
     _smsIngress.startListening();
 
     _smsIngress.onParsedSms.listen((parsedSms) async {
@@ -33,6 +34,17 @@ class SmsIntegrationService {
       // Notify the UI that the database has been updated
       _onReconciliationCompleteController.add(null);
     });
+  }
+
+  Future<void> processBacklog() async {
+    await _smsIngress.initializeStorage();
+    
+    // Process any messages that were received and saved in the background while the app was closed
+    final matchingService = locator<TransactionMatchingService>();
+    for (final parsedSms in _smsIngress.parsedMessages) {
+      await matchingService.reconcileTransaction(parsedSms);
+    }
+    _onReconciliationCompleteController.add(null);
   }
 
   void dispose() {
